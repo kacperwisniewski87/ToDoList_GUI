@@ -16,7 +16,6 @@ class ToDoApp(ttk.Window):
 
     def __init__(self):
         super().__init__()
-        self.geometry('600x550')
         self.geometry('600x530')
         self.title('TO-DO LIST')
         self.resizable(False, False)
@@ -41,6 +40,7 @@ class ToDoApp(ttk.Window):
         self.data_dict_var = {}
         self.data_dict_items_list = []
         self.data_task_list = []
+        self.task_index = None
 
         # set task entry variable
         self.task_string_var = ttk.StringVar()
@@ -59,14 +59,17 @@ class ToDoApp(ttk.Window):
         # configure title bar's X button action
         self.protocol('WM_DELETE_WINDOW', self.exit_by_x)
 
+        # bind ESCAPE key press
+        self.bind('<KeyPress-Escape>', lambda event: self.widgets_reset())
+
         # run app
         self.mainloop()
 
     def frame_date_selection(self):
         frame = ttk.Frame(self)
 
-        date_label = ttk.Label(frame, text='Select date:', font=self.main_font, anchor='center')
-        date_label.pack(side='left', padx=3)
+        self.date_label = ttk.Label(frame, text='Select date:', font=self.main_font, anchor='center')
+        self.date_label.pack(side='left', padx=3)
 
         self.calendar_button = CustomDateEntry(frame, width=10, bootstyle='secondary', firstweekday=0)
         self.calendar_button.button_focus_disable()
@@ -76,35 +79,35 @@ class ToDoApp(ttk.Window):
             self.calendar_button.entry_configure('secondary', self.main_font)
         self.calendar_button.pack(side='left', expand=True, padx=5)
 
-        select_date_button = ttk.Button(
+        self.select_date_button = ttk.Button(
             frame,
             text='Show tasks',
             bootstyle='secondary-TButton',
             takefocus=False,
             command=self.load_task_for_date
         )
-        select_date_button.pack(side='right')
+        self.select_date_button.pack(side='right')
 
         frame.pack(side='top', padx=15, pady=15, fill='x')
 
     def frame_new_task(self):
         frame = ttk.Frame(self)
 
-        add_label = ttk.Label(frame, text='New:', font=self.main_font)
-        add_label.pack(side='left', padx=3)
+        self.add_label = ttk.Label(frame, text='New:', font=self.main_font)
+        self.add_label.pack(side='left', padx=3)
 
-        new_task_field = ttk.Entry(frame, font=self.main_font, textvariable=self.task_string_var)
-        new_task_field.pack(side='left', padx=10, fill='x', expand=True)
-        new_task_field.bind('<Return>', lambda event: self.add_new_task())
+        self.new_task_field = ttk.Entry(frame, font=self.main_font, textvariable=self.task_string_var)
+        self.new_task_field.pack(side='left', padx=10, fill='x', expand=True)
+        self.new_task_field.bind('<Return>', lambda event: self.add_new_task())
 
-        add_button = ttk.Button(
+        self.add_task_button = ttk.Button(
             frame,
             text='Add',
             bootstyle='secondary-TButton',
             takefocus=False,
             command=self.add_new_task
         )
-        add_button.pack(side='right')
+        self.add_task_button.pack(side='right')
 
         frame.pack(side='top', padx=15, fill='x')
 
@@ -112,7 +115,7 @@ class ToDoApp(ttk.Window):
         frame = ttk.Frame(self)
 
         self.date_label = ttk.Label(frame, text=f'Tasks for day {self.date_var}', font=self.main_font)
-        self.date_label.pack(side='top', padx=40, fill='x')
+        self.date_label.pack(side='top', fill='x')
 
         self.task_list = tk.Listbox(
             frame,
@@ -126,37 +129,50 @@ class ToDoApp(ttk.Window):
         self.task_list_scrollbar = tk.Scrollbar(self.task_list, orient='vertical', command=self.task_list.yview)
         self.task_list.configure(yscrollcommand=self.task_list_scrollbar.set)
         self.task_list_scrollbar_update()
-        self.task_list.pack(side='top', padx=40, fill='x')
+        self.task_list.pack(side='top', fill='x')
 
-        self.task_list.bind('<<ListboxSelect>>', self.task_completion_button_update)
+        self.task_list.bind('<<ListboxSelect>>', self.task_completion_and_edit_button_update)
         self.task_list.bind('<Delete>', lambda event: self.delete_task())
 
-        frame.pack(side='top', padx=15, pady=15, fill='x')
+        frame.pack(side='top', padx=40, pady=15, fill='x')
 
     def frame_task_options(self):
-        frame = ttk.Frame(self)
+        frame = ttk.Frame(self, height=45)
 
         self.task_completion_button = ttk.Button(
             frame,
             text='Task done',
             bootstyle='secondary-TButton',
             takefocus=False,
-            width=12,
+            state='disabled',
+            width=11,
             command=self.task_completion_button_action
         )
-        self.task_completion_button.pack(side='left')
+        self.task_completion_button.place(relx=0, rely=0.5, anchor='w')
+
+        self.edit_task_button = ttk.Button(
+            frame,
+            text='Edit task',
+            bootstyle='secondary-TButton',
+            takefocus=False,
+            width=11,
+            state='disabled',
+            command=self.edit_button_action
+        )
+        self.edit_task_button.place(relx=0.5, rely=0.5, anchor='center')
 
         self.delete_task_button = ttk.Button(
             frame,
             text='Delete task',
             bootstyle='secondary-TButton',
             takefocus=False,
-            width=12,
+            width=11,
+            state='disabled',
             command=self.delete_task
         )
-        self.delete_task_button.pack(side='right')
+        self.delete_task_button.place(relx=1, rely=0.5, anchor='e')
 
-        frame.pack(side='top', padx=87, pady=5, fill='x')
+        frame.pack(side='top', padx=40, pady=5, fill='x')
 
     def task_list_scrollbar_update(self):
         if len(self.data_task_list) > 11:
@@ -166,13 +182,13 @@ class ToDoApp(ttk.Window):
 
     def add_new_task(self):
         if self.task_string_var.get() != '':
-            self.data_dict_items_list.append([self.task_string_var.get(), False])
-            self.data_task_list.append(self.task_string_var.get())
+            self.data_dict_items_list.append([self.task_string_var.get().strip(), False])
+            self.data_task_list.append(self.task_string_var.get().strip())
             self.task_list_var.set(self.data_task_list)
             self.task_string_var.set('')
             self.task_list_scrollbar_update()
             self.task_list.select_clear(0, 'end')
-            self.task_completion_button.configure(text='Task done')
+            self.widgets_reset()
 
     def delete_task(self):
         if self.task_list.curselection() != ():
@@ -182,7 +198,7 @@ class ToDoApp(ttk.Window):
             self.task_list_var.set(self.data_task_list)
             self.load_completed_task()
             self.task_list_scrollbar_update()
-            self.task_completion_button.configure(text='Task done')
+            self.widgets_reset(erase=False)
 
     def task_completion_button_action(self):
         if self.task_list.curselection() != ():
@@ -200,18 +216,17 @@ class ToDoApp(ttk.Window):
                 self.task_list_var.set(self.data_task_list)
                 self.task_completion_format()
             self.task_list.select_clear(0, 'end')
-        self.task_completion_button.configure(text='Task done')
+        self.widgets_reset(erase=False)
 
-    def task_completion_button_update(self, event):
-        if len(self.data_task_list) > 0:
-            try:
-                task_idx = self.task_list.curselection()[0]
-                if self.data_dict_items_list[task_idx][1]:
-                    self.task_completion_button.configure(text='Uncheck task')
-                else:
-                    self.task_completion_button.configure(text='Task done')
-            except IndexError:
-                self.task_list.select_clear(0, 'end')
+    def task_completion_and_edit_button_update(self, event):
+        if len(self.data_task_list) > 0 and event.widget.curselection():
+            task_idx = self.task_list.curselection()[0]
+            self.task_completion_button.configure(state='enabled')
+            self.edit_task_button.configure(state='enabled')
+            self.delete_task_button.configure(state='enabled')
+            if self.data_dict_items_list[task_idx][1]:
+                self.task_completion_button.configure(text='Uncheck task')
+            else:
                 self.task_completion_button.configure(text='Task done')
 
     def load_completed_task(self):
@@ -267,7 +282,7 @@ class ToDoApp(ttk.Window):
                 os.remove(os.path.join(file_path, file))
 
     def load_task_for_date(self):
-        self.task_completion_button.configure(text='Task done')
+        self.widgets_reset(erase=False)
         # check if year and month change
         if self.date_var[:7] == self.calendar_button.entry.get()[:7]:
             self.data_dict_var_update()
@@ -293,3 +308,66 @@ class ToDoApp(ttk.Window):
     def exit_by_x(self):
         self.save_task_to_file()
         self.destroy()
+
+    def edit_button_action(self):
+        # set index variable and widgets display configuration
+        self.task_index = self.task_list.curselection()[0]
+        self.task_completion_button.configure(state='disabled')
+        self.delete_task_button.configure(state='disabled')
+        self.select_date_button.configure(state='disabled')
+        self.task_list.configure(state='disabled')
+        self.add_label.configure(text='Task:')
+        self.calendar_button.configure(state='disabled')
+        self.edit_task_button.configure(text='Cancel edit')
+        self.add_task_button.configure(text='Edit')
+        
+        # set commands to add and edit buttons
+        self.add_task_button.configure(command=self.edit_task)
+        self.edit_task_button.configure(command=lambda: self.widgets_reset(erase=False))
+
+        # override binding
+        self.new_task_field.bind('<Return>', lambda event: self.edit_task())
+
+        # set task entry variable
+        if self.data_dict_items_list[self.task_index][1]:
+            self.task_string_var.set(self.task_list.get(self.task_index)[2:])
+        else:
+            self.task_string_var.set(self.task_list.get(self.task_index))
+
+    def widgets_reset(self, erase=True):
+        # reset widgets display configuration
+        self.task_index = None
+        self.task_completion_button.configure(text='Task done')
+        self.task_completion_button.configure(state='disabled')
+        self.delete_task_button.configure(state='disabled')
+        self.select_date_button.configure(state='enabled')
+        self.task_list.configure(state='normal')
+        self.add_label.configure(text='New:')
+        self.calendar_button.configure(state='normal')
+        self.edit_task_button.configure(text='Edit')
+        self.edit_task_button.configure(state='disabled')
+        self.add_task_button.configure(text='Add')
+        self.task_list.select_clear(0, 'end')
+
+        # reset commands to add and edit buttons
+        self.add_task_button.configure(command=self.add_new_task)
+        self.edit_task_button.configure(command=self.edit_button_action)
+
+        # override (reset) binding
+        self.new_task_field.bind('<Return>', lambda event: self.add_new_task())
+
+        # reset task entry variable
+        if erase:
+            self.task_string_var.set('')
+
+    def edit_task(self):
+        if self.task_string_var.get() != '':
+            if self.data_dict_items_list[self.task_index][1]:
+                task_text = '\u2713 ' + self.task_string_var.get().strip()
+            else:
+                task_text = self.task_string_var.get().strip()
+            self.data_dict_items_list[self.task_index][0] = task_text
+            self.data_task_list[self.task_index] = task_text
+            self.task_list_var.set(self.data_task_list)
+            self.task_list_scrollbar_update()
+        self.widgets_reset()
