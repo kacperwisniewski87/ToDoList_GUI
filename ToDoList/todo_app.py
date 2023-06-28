@@ -300,7 +300,8 @@ class ToDoApp(ttk.Window):
         self.date_label.configure(text=f'Tasks for day {self.date_var}')
 
     def data_dict_var_update(self):
-        if (size := len(self.data_dict_items_list)) > 0:
+        size = len(self.data_dict_items_list)
+        if size > 0:
             self.data_dict_var[self.date_var] = self.data_dict_items_list
         elif size == 0 and self.date_var in self.data_dict_var:
             del self.data_dict_var[self.date_var]
@@ -318,7 +319,7 @@ class ToDoApp(ttk.Window):
         self.task_list.configure(state='disabled')
         self.add_label.configure(text='Task:')
         self.calendar_button.configure(state='disabled')
-        self.edit_task_button.configure(text='Cancel edit')
+        self.edit_task_button.configure(text='Cancel editing')
         self.add_task_button.configure(text='Edit')
         
         # set commands to add and edit buttons
