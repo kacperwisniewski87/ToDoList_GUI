@@ -5,7 +5,7 @@ import tkinter as tk
 import ttkbootstrap as ttk
 from custom_widgets import CustomDateEntry
 from tkinter.font import Font
-from datetime import date
+from datetime import datetime
 
 
 class ToDoApp(ttk.Window):
@@ -44,7 +44,7 @@ class ToDoApp(ttk.Window):
 
         # set task entry variable
         self.task_string_var = ttk.StringVar()
-        self.date_var = date.today().strftime('%Y-%m-%d')
+        self.date_var = datetime.today().strftime(r'%x')
 
         # load tasks and set task list variable
         self.load_task_from_file()
@@ -207,14 +207,13 @@ class ToDoApp(ttk.Window):
                 self.data_dict_items_list[task_idx][1] = False
                 self.data_dict_items_list[task_idx][0] = self.data_dict_items_list[task_idx][0][2:]
                 self.data_task_list[task_idx] = self.data_task_list[task_idx][2:]
-                self.task_list_var.set(self.data_task_list)
                 self.task_completion_undo_format()
             else:
                 self.data_dict_items_list[task_idx][1] = True
                 self.data_dict_items_list[task_idx][0] = '\u2713 ' + self.data_dict_items_list[task_idx][0]
                 self.data_task_list[task_idx] = '\u2713 ' + self.data_task_list[task_idx]
-                self.task_list_var.set(self.data_task_list)
                 self.task_completion_format()
+            self.task_list_var.set(self.data_task_list)
             self.task_list.select_clear(0, 'end')
         self.widgets_reset(erase=False)
 
@@ -257,7 +256,10 @@ class ToDoApp(ttk.Window):
 
     def load_task_from_file(self):
         file_path = os.path.join(ToDoApp.main_path, 'data', 'app_data')
-        file = f'task_data_{self.date_var[:4]}_{self.date_var[5:7]}.dat'
+        current_task_date = datetime.strptime(self.date_var, r'%x').strftime('%Y_%m')
+        file = f'task_data_{current_task_date}.dat'
+        print(file)
+        print(os.path.join(file_path, file))
         if os.path.exists(file_path) and os.path.isfile(os.path.join(file_path, file)):
             with open(os.path.join(file_path, file), 'rb') as f:
                 self.data_dict_var = pickle.load(f)
@@ -271,7 +273,8 @@ class ToDoApp(ttk.Window):
     def save_task_to_file(self):
         self.data_dict_var_update()
         file_path = os.path.join(ToDoApp.main_path, 'data', 'app_data')
-        file = f'task_data_{self.date_var[:4]}_{self.date_var[5:7]}.dat'
+        current_task_date = datetime.strptime(self.date_var, r'%x').strftime('%Y_%m')
+        file = f'task_data_{current_task_date}.dat'
         if len(self.data_dict_var) > 0:
             if not os.path.exists(file_path):
                 os.mkdir(file_path)
@@ -284,19 +287,19 @@ class ToDoApp(ttk.Window):
     def load_task_for_date(self):
         self.widgets_reset(erase=False)
         # check if year and month change
-        if self.date_var[:7] == self.calendar_button.entry.get()[:7]:
+        current_task_date = datetime.strptime(self.date_var, r'%x').strftime('%Y_%m')
+        selected_task_date = datetime.strptime(self.calendar_button.entry.get(), r'%x').strftime('%Y_%m')
+        if current_task_date == selected_task_date:
             self.data_dict_var_update()
             self.date_var = self.calendar_button.entry.get()
             self.data_dict_items_list = self.data_dict_var.get(self.date_var, [])
             self.data_task_list = [item[0] for item in self.data_dict_items_list]
-            self.task_list_var.set(self.data_task_list)
-            self.load_completed_task()
         else:
             self.save_task_to_file()
             self.date_var = self.calendar_button.entry.get()
             self.load_task_from_file()
-            self.task_list_var.set(self.data_task_list)
-            self.load_completed_task()
+        self.task_list_var.set(self.data_task_list)
+        self.load_completed_task()
         self.date_label.configure(text=f'Tasks for day {self.date_var}')
 
     def data_dict_var_update(self):
@@ -321,7 +324,7 @@ class ToDoApp(ttk.Window):
         self.calendar_button.configure(state='disabled')
         self.edit_task_button.configure(text='Cancel editing')
         self.add_task_button.configure(text='Edit')
-        
+
         # set commands to add and edit buttons
         self.add_task_button.configure(command=self.edit_task)
         self.edit_task_button.configure(command=lambda: self.widgets_reset(erase=False))
